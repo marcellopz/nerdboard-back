@@ -17,6 +17,7 @@ async function authenticatedMiddleware(
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
+    console.log("TokenID: ", idToken);
     console.log("Decoded token:", decodedToken);
     // Aqui você pode anexar o usuário ao objeto da requisição
     (req as any).user = decodedToken;
