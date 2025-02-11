@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { createServer, Server as HTTPServer } from "http";
 import Controller from "./utils/interfaces/controller.interface";
 import errorMiddleware from "./middleware/error.middleware";
+import SocketTest from "./resources/test/sockettest";
 
 export const allowedOrigins = ["http://localhost:5173"]; // Add other origins as needed
 
@@ -37,6 +38,8 @@ class App {
 
     // Error handling middleware should be loaded after the loading the controllers
     this.initializeErrorHandling();
+
+    new SocketTest(this.httpServer)
   }
 
   private initializeMiddlewares(): void {
