@@ -4,6 +4,7 @@ import authenticated from "@/middleware/authenticated.middleware";
 import { DecodedIdToken } from "firebase-admin/lib/auth/token-verifier";
 import ChatRoomManager from "../chat/ChatRoomManager";
 import ChatRoom from "../chat/ChatRoom";
+import ChatUser from "../chat/ChatUser";
 // import { boolean } from "joi";
 
 class ChatController implements Controller {
@@ -17,64 +18,81 @@ class ChatController implements Controller {
 
   private initializeRoutes(): void {
     this.router.get(`${this.path}`, authenticated, this.getRooms); // Add the authenticated middleware here
-    this.router.post(`${this.path}/join/:id`, authenticated, this.joinRoom); // Tentativa de entrar na sala
+    this.router.post(`${this.path}/join`, authenticated, this.joinRoom); // Tentativa de entrar na sala
     this.router.get(`${this.path}/room/:id`, authenticated, this.getRoom); // Add the authenticated middleware here
     this.router.post(`${this.path}/create`, authenticated, this.createRoom);
   }
 
   private getRooms = (req: Request, res: Response): void => {
+    try {
+      // Pega a lista de salas
+      var chatrooms = this.chatRoomManager.getAllRooms()
 
-    // Pega a lista de salas
-    var chatrooms = this.chatRoomManager.getAllRooms()
+      // Transforma a lista de salas em um formato compatível para o envio
+      const roomsData = chatrooms.map(room => ({
+        id: room.getId(),
+        name: room.getName(),
+        numberOfUsers: room.getUsers().length
+      }));
 
-    // Transforma a lista de salas em um formato compatível para o envio
-    const roomsData = chatrooms.map(room => ({
-      id: room.getId(),
-      name: room.getName(),
-      numberOfUsers: room.getUsers().length
-    }));
-
-    // Retorna os dados transformados para o front-end
-    res.status(200).json({ rooms: roomsData });
+      // Retorna os dados transformados para o front-end
+      res.status(200).json({ success: true, data: roomsData, message: "Rooms listed" });
+    }
+    catch (e) {
+      res.status(400).json({ success: false, data: null, message: e });
+    }
   };
 
   private joinRoom = (req: Request, res: Response): void => {
-    const { userId, roomId } = req.body
+    try {
+      const { roomId } = req.body
+      const chatUser: ChatUser = { id: req.user.uid, username: req.user.name }
 
-    // Tenta adicionar o usuário na sala
-    var success = this.chatRoomManager.addUserToRoom(userId, roomId);
+      // Tenta adicionar o usuário na sala
+      this.chatRoomManager.addUserToRoom(chatUser, roomId);
 
-    // Retorna ao front-end se o usuário conseguiu entrar na sala
-    if (success) {
-      res.status(200).json({ success: true });
+      // Retorna ao front-end se o usuário conseguiu entrar na sala
+      res.status(200).json({ success: true, data: null, message: "User join the room" });
+    }
+    catch (e) {
+      let error = e as Error
+      res.status(400).json({ success: false, data: null, message: error.message });
     }
   };
 
   private getRoom = (req: Request, res: Response): void => {
-    const { roomId } = req.body
+    try {
+      const roomId = req.params.id
 
-    // Pega a sala de chat usando o id
-    var chatroom: ChatRoom | undefined = this.chatRoomManager.getChatRoomById(roomId);
+      // Pega a sala de chat usando o id
+      const chatroom: ChatRoom | undefined = this.chatRoomManager.getChatRoomById(roomId);
 
-    // Pega a lista de mensagens da sala de chat
-    var messages = chatroom?.getMessages()
+      const roomName = chatroom?.getName()
 
-    // Pega a lista de usuários da sala de chat
-    var users = chatroom?.getUsers()
+      const messages = chatroom?.getMessages()
 
-    // Retorna a resposta ao front-end com as mensagens e os usuários da sala
-    res.status(200).json({ messages, users })
+      const users = chatroom?.getUsers()
+
+      const data = { roomName, messages, users }
+
+      // Retorna a resposta ao front-end com as mensagens e os usuários da sala
+      res.status(200).json({ success: true, data: data, message: "Rooms received" })
+    }
+    catch (e) {
+      res.status(400).json({ success: false, data: null, message: e })
+    }
   };
 
   private createRoom = (req: Request, res: Response): void => {
     const { roomName } = req.body
 
-    // Checa se o usuário conseguiu entrar na sala
-    var success = this.chatRoomManager.addChatRoom(new ChatRoom(roomName))
-
-    // Retorna a resposta ao front-end de que a sala foi criada
-    if (success) {
-      res.status(200).json({ success: true })
+    try {
+      this.chatRoomManager.addChatRoom(new ChatRoom(roomName))
+      res.status(201).json({ success: true, message: "Room created." })
+    }
+    catch (e) {
+      let error = e as Error
+      res.status(400).json({ success: false, message: `Failed to create room: ${error.message}` })
     }
   };
 }

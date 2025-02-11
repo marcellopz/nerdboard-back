@@ -17,18 +17,18 @@ class ChatRoom {
 
 
     public addUser(user: ChatUser): void {
-        if (this.users.has(user.getId())) {
-            throw new Error(`User ${user.getName()} is already in the chat room.`);
+        if (this.users.has(user.id)) {
+            throw new Error(`User ${user.username} is already in the chat room.`);
         }
-        this.users.set(user.getId(), user);
+        this.users.set(user.id, user);
     }
 
 
     public removeUser(user: ChatUser): void {
-        if (!this.users.has(user.getId())) {
-            throw new Error(`User ${user.getName()} is not in the chat room.`);
+        if (!this.users.has(user.id)) {
+            throw new Error(`User ${user.username} is not in the chat room.`);
         }
-        this.users.delete(user.getId());
+        this.users.delete(user.id);
     }
 
 

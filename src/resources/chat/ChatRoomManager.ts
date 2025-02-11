@@ -18,17 +18,15 @@ class ChatRoomManager {
     }
 
 
-    public addChatRoom(chatRoom: ChatRoom): boolean {
+    public addChatRoom(chatRoom: ChatRoom): void {
         if (this.rooms.has(chatRoom.getId())) {
-            console.log(`Chat room with ID ${chatRoom.getId()} already exists.`);
-            return false
+            throw new Error(`Chat room with ID ${chatRoom.getId()} already exists.`);
         }
         this.rooms.set(chatRoom.getId(), chatRoom);
-        return true
     }
 
 
-    public deleteChatRoomById(roomId: string): void {
+    public removeChatRoomById(roomId: string): void {
         if (!this.rooms.has(roomId)) {
             throw new Error(`Chat room with ID ${roomId} does not exist.`);
         }
@@ -46,14 +44,15 @@ class ChatRoomManager {
     }
 
 
-    public addUserToRoom(user: ChatUser, roomId: string): boolean {
+    public addUserToRoom(chatUser: ChatUser, roomId: string): void {
         const room = this.getChatRoomById(roomId);
         if (!room) {
-            console.log(`Chat room with ID ${roomId} does not exist.`);
-            return false;
+            throw new Error(`Chat room with ID ${roomId} does not exist.`);
         }
-        room.addUser(user);
-        return true;
+        if (room.getUsers().find((user) => user.id != chatUser.id)){
+            throw new Error(`O usuário ${chatUser.id} já está na sala ${roomId}`);
+        }
+        room.addUser(chatUser);
     }
 
 
