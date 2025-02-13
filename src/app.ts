@@ -9,9 +9,9 @@ import Controller from "./utils/interfaces/controller.interface";
 import errorMiddleware from "./middleware/error.middleware";
 import { Server, Socket } from "socket.io";
 import socketAuthMiddleware from "./middleware/socketAuthMiddleware";
-import roomManager from "services/roomManager";
-import RoomManager from "services/roomManager";
-import UserManager from "services/userManager";
+import roomManager from "services/roomService";
+import RoomService from "services/roomService";
+import UserService from "services/userService";
 import { Database } from "firebase-admin/lib/database/database";
 import BackServer from "./services/server";
 

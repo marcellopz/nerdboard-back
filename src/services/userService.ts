@@ -1,6 +1,6 @@
 import { Database } from "firebase-admin/lib/database/database";
 
-class UserManager {
+class UserService {
   private db: Database
   private usersRef
 
@@ -13,7 +13,6 @@ class UserManager {
     await this.usersRef.child(userId).set({ name, "email": email });
   }
 
-
   async removeUser(userId: string) {
     await this.usersRef.child(userId).remove();
   }
@@ -24,4 +23,4 @@ class UserManager {
   }
 }
 
-export default UserManager;
+export default UserService;

@@ -1,6 +1,6 @@
 import { Database } from "firebase-admin/lib/database/database";
 
-class RoomManager {
+class RoomService {
   private db: Database
   private roomsRef
 
@@ -57,4 +57,4 @@ class RoomManager {
   }
 }
 
-export default RoomManager;
+export default RoomService;
