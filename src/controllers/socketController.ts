@@ -1,78 +1,95 @@
 import { Server, Socket } from "socket.io";
 import RoomService from "../services/roomService";
 import UserService from "../services/userService";
+import { nanoid } from "nanoid";
+import Random from "@/utils/random/random";
 
 export default class SocketController {
   private io: Server;
-  private roomManager: RoomService;
-  private userManager: UserService;
+  private roomService: RoomService;
+  private userService: UserService;
 
   constructor(io: Server, roomManager: RoomService, userManager: UserService) {
     this.io = io;
-    this.roomManager = roomManager;
-    this.userManager = userManager;
+    this.roomService = roomManager;
+    this.userService = userManager;
   }
-
 
   setupSocket(socket: Socket): void {
     const { id, name, email } = socket.data.user;
 
     console.log(`Usuário conectado: ${name} (${id})`);
 
-    this.userManager.addUser(id, name, email);
-    this.io.emit("online_users", this.userManager.getOnlineUsers());
+    this.userService.addUser(id, name, email);
+    this.io.emit("online_users", this.userService.getOnlineUsers());
 
-    socket.emit("room_list", this.roomManager.getRooms());
+    socket.emit("room_list", this.roomService.getRooms());
 
-    socket.on("create_room", async (roomName: string) => this.handleCreateRoom(socket, roomName))
-    socket.on("join_room", async (roomName: string) => this.handleJoinRoom(socket, roomName))
-    socket.on("send_message", async ({ room, text }) => this.handleMessage(socket, { room, text }))
-    socket.on("leave_room", async (roomName: string) => this.handleLeaveRoom(socket, roomName))
+    socket.on("create_room", async (roomName: string, callback: (roomId:string) => void) => this.handleCreateRoom(socket, roomName, callback));
+    socket.on("join_room", async (roomId: string) => this.handleJoinRoom(socket, roomId));
+    socket.on("send_message", async ({ room, text }) => this.handleMessage(socket, { room, text }));
+    socket.on("leave_room", async (roomName: string) => this.handleLeaveRoom(socket, roomName));
+    
     socket.on("disconnect", async () => this.handleDisconnect(socket, id, name))
+  }
+
+  private async handleCreateRoom(socket: Socket, roomName: string, callback: (roomId:string) => void) {
+    try {
+      const { id, name } = socket.data.user;
+      const roomId = Random.createID();
+      await this.roomService.createRoom(roomName, roomId, id, name);
+      socket.join(roomId);
+      this.io.emit("room_list", await this.roomService.getRooms());
+      callback(roomId);
+    }
+    catch (e){
+      const error = e as Error
+      console.log(error.message)
+    }
+  }
+
+  private async handleJoinRoom(socket: Socket, roomId: string) {
+    try{
+      const { id, name } = socket.data.user
+      await this.roomService.addUserToRoom(roomId, id, name);
+      socket.join(roomId);
+      this.notifyRoomUsers(roomId);
+    }
+    catch (e){
+      const error = e as Error
+      console.error(error.message);
+    }
   }
 
   private async handleDisconnect(socket: Socket, id: string, name: string) {
     console.log(`Usuário desconectado: ${name}`);
-    await this.userManager.removeUser(id);
+    await this.userService.removeUser(id);
     this.updateOnlineUsers();
 
-    (await this.roomManager.getRooms()).forEach(async (room) => {
-      await this.roomManager.removeUserFromRoom(room, id);
+    (await this.roomService.getRooms()).forEach(async (room) => {
+      await this.roomService.removeUserFromRoom(room, id);
       this.notifyRoomUsers(room);
     });
   }
 
-  private async handleLeaveRoom(socket: Socket, roomName: string) {
+  private async handleLeaveRoom(socket: Socket, roomId: string) {
     const { id } = socket.data.user;
-    socket.leave(roomName);
-    await this.roomManager.removeUserFromRoom(roomName, id);
-    this.notifyRoomUsers(roomName);
+    await this.roomService.removeUserFromRoom(roomId, id);
+    socket.leave(roomId);
+    this.notifyRoomUsers(roomId);
   }
 
   private async handleMessage(socket: Socket, { room, text }: { room: string, text: string }) {
     const { name } = socket.data.user
-    const message = await this.roomManager.addMessageToRoom(room, name, text);
+    const message = await this.roomService.addMessageToRoom(room, name, text);
     this.io.to(room).emit("message", message);
   }
 
-  private async handleCreateRoom(socket: Socket, roomName: string) {
-    const { id, name } = socket.data.user;
-    await this.roomManager.createRoom(roomName, id, name);
-    this.io.emit("room_list", await this.roomManager.getRooms());
-  }
-
-  private async handleJoinRoom(socket: Socket, roomName: string) {
-    const { id } = socket.data.id
-    await this.roomManager.addUserToRoom(roomName, id);
-    socket.join(roomName);
-    this.notifyRoomUsers(roomName);
-  }
-
   private async updateOnlineUsers() {
-    this.io.emit("online_users", await this.userManager.getOnlineUsers());
+    this.io.emit("online_users", await this.userService.getOnlineUsers());
   }
 
   private async notifyRoomUsers(roomName: string) {
-    this.io.to(roomName).emit("room_users", await this.roomManager.getUsersInRoom(roomName));
+    this.io.to(roomName).emit("room_users", await this.roomService.getUsersInRoom(roomName));
   }
 }

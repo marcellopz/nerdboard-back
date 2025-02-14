@@ -1,3 +1,5 @@
+import { nanoid } from "nanoid";
+
 class Random {
     public static getRandomIntInclusive(min: number, max: number): number {
         const minCeiled = Math.ceil(min);
@@ -22,6 +24,10 @@ class Random {
       
         return array;
     };
+
+    public static createID() : string{
+        return nanoid(10)
+    }
 }
 
 export default Random

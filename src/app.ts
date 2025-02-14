@@ -39,7 +39,12 @@ class App {
     this.express = express();
     this.port = port;
     this.httpServer = createServer(this.express);
-    this.io = new Server(this.httpServer)
+    this.io = new Server(this.httpServer, {
+      cors:{
+        origin: allowedOrigins,
+        credentials: true
+      }
+    })
     this.initializeDatabaseConnection(db);
     this.initializeMiddlewares();
     this.initializeControllers(controllers);
