@@ -1,26 +1,28 @@
 import Random from "@/utils/random/random";
+import { FieldValue, Firestore, Timestamp } from "firebase-admin/firestore";
 import { Database } from "firebase-admin/lib/database/database";
 import { v4 as uuidv4 } from 'uuid'
 
 class RoomManager {
-  private db: Database
-  private roomsRef
+  private db: Firestore
+  private roomsCollection
 
-  constructor(db: Database) {
+  constructor(db: Firestore) {
     this.db = db
-    this.roomsRef = this.db.ref("rooms");
+    this.roomsCollection = this.db.collection("rooms");
   }
 
   async createRoom(roomName: string, roomId: string, userId: string, userName: string) {
     // Check if the room already exists
-    const exists = (await this.roomsRef.child(roomName).once("value")).exists();
+    const roomRef = this.roomsCollection.doc(roomId);
+    const roomSnapshot = await roomRef.get();
 
-    if (!exists) {
+    if (!roomSnapshot.exists) {
       // Log the success of room creation
       console.log("Sala criada com sucesso!", roomName);
 
       // Set the room data and add the user who created the room
-      await this.roomsRef.child(roomId).set({
+      await roomRef.set({
         roomName: roomName,
         roomId: roomId,
         createdBy: userName,
@@ -31,42 +33,50 @@ class RoomManager {
   }
 
   async addUserToRoom(roomId: string, userId: string, userName: string) {
-    // Verifica se o usuário já está na sala
-    const userExists = (await this.roomsRef.child(`${roomId}/users/${userId}`).once("value")).exists();
+    const roomRef = this.roomsCollection.doc(roomId);
+    const roomSnapshot = await roomRef.get();
 
-    if (userExists) {
-      // Lança um erro caso o usuário já esteja na sala
-      throw new Error("O usuário já está nesta sala.");
+    if (!roomSnapshot.exists){
+      throw new Error("A sala não existe");
+    }
+
+    const roomData = roomSnapshot.data();
+    if (roomData?.users?.[userId]) {
+      throw new Error("O usuário já existe nessa sala.");
     }
 
     // Adiciona o usuário à sala
-    await this.roomsRef.child(`${roomId}/users/${userId}`).set({ username: userName, id:userId });
-
+    await roomRef.update({
+      [`users.${userId}`]: {username: userName, id: userId},
+    })
   }
 
   async removeUserFromRoom(roomId: string, userId: string) {
-    await this.roomsRef.child(`${roomId}/users/${userId}`).remove();
+    const roomRef = this.roomsCollection.doc(roomId);
+    await roomRef.update({
+      [`users${userId}`]: FieldValue.delete(),
+    })
   }
 
-  async getUsersInRoom(roomName: string): Promise<string[]> {
-    const snapshot = await this.roomsRef.child(`${roomName}/users`).once("value");
-    return snapshot.exists() ? Object.keys(snapshot.val()) : [];
+  async getUsersInRoom(roomId: string): Promise<string[]> {
+    const roomSnapshot = await this.roomsCollection.doc(roomId).get();
+    return roomSnapshot.exists ? Object.keys(roomSnapshot.data()?.users || {}) : [];
   }
 
-  async addMessageToRoom(roomName: string, userName: string, text: string) {
-    const message = { sender: userName, text, timestamp: Date.now() };
-    console.log(message)
-    await this.roomsRef.child(`${roomName}/messages`).push(message);
-    return message;
+  async addMessageToRoom(roomId: string, userName: string, text: string) {
+    const roomRef = this.roomsCollection.doc(roomId);
+    const message = { sender: userName, text, timeStamp: Date.now() };
+
+    await roomRef.update({
+      messages: FieldValue.arrayUnion(message)
+    })
+
+    return message
   }
 
   async getRooms(): Promise<string[]> {
-    const snapshot = await this.roomsRef.once("value");
-    if (snapshot.exists()) {
-      return Object.keys(snapshot.val());
-    } else {
-      return [];
-    }
+    const snapshot = await this.roomsCollection.get();
+    return snapshot.docs.map((doc) => doc.id);
   }
 }
 

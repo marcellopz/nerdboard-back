@@ -12,7 +12,7 @@ import socketAuthMiddleware from "./middleware/socketAuthMiddleware";
 import roomManager from "services/roomService";
 import RoomService from "services/roomService";
 import UserService from "services/userService";
-import { Database } from "firebase-admin/lib/database/database";
+import { Firestore } from "firebase-admin/firestore";
 import BackServer from "./services/server";
 
 export const allowedOrigins = ["http://localhost:5173"]; // Add other origins as needed
@@ -35,7 +35,7 @@ class App {
   public io : Server
   public server : BackServer
 
-  constructor(controllers: Controller[], db: Database, port: number) {
+  constructor(controllers: Controller[], db: Firestore, port: number) {
     this.express = express();
     this.port = port;
     this.httpServer = createServer(this.express);
@@ -80,14 +80,13 @@ class App {
     this.express.use(errorMiddleware);
   }
 
-  private initializeDatabaseConnection(db: Database): void {
-    db.ref(".info/connected").on("value", (snapshot) => {
-      if (snapshot.val() === true) {
-        console.log("Conectado ao Firebase Realtime Database");
-      } else {
-        console.log("Desconectado do Firebase Realtime Database");
-      }
-    });
+  private async initializeDatabaseConnection(db:Firestore): Promise<void> {
+    try {
+      await db.collection("_status").doc("connection").set({ connected: true, timestamp: Date.now() });
+      console.log("Conectado ao Firestore");
+    } catch {
+      console.log("Desconectado do Firestore");
+    }
   }
 
   public listen(): void {

@@ -13,7 +13,9 @@ admin.initializeApp({
 
 validateEnv();
 
-const db = admin.database()
+const db = admin.firestore()
+
+const FieldValue = admin.firestore.FieldValue;
 
 const app = new App([new TestController()], db, Number(process.env.PORT));
 
