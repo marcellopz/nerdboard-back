@@ -1,7 +1,6 @@
 import { Server, Socket } from "socket.io";
 import RoomService from "../services/roomService";
 import UserService from "../services/userService";
-import { nanoid } from "nanoid";
 import Random from "@/utils/random/random";
 
 export default class SocketController {
@@ -27,7 +26,7 @@ export default class SocketController {
 
     socket.on("create_room", async (roomName: string, callback: (roomId:string) => void) => this.handleCreateRoom(socket, roomName, callback));
     socket.on("join_room", async (roomId: string) => this.handleJoinRoom(socket, roomId));
-    socket.on("send_message", async ({ room, text }) => this.handleMessage(socket, { room, text }));
+    socket.on("send_message", async ({ roomId, text }) => this.handleMessage(socket, { roomId, text }));
     socket.on("leave_room", async (roomName: string) => this.handleLeaveRoom(socket, roomName));
     
     socket.on("disconnect", async () => this.handleDisconnect(socket, id, name))
@@ -79,10 +78,15 @@ export default class SocketController {
     this.notifyRoomUsers(roomId);
   }
 
-  private async handleMessage(socket: Socket, { room, text }: { room: string, text: string }) {
-    const { name } = socket.data.user
-    const message = await this.roomService.addMessageToRoom(room, name, text);
-    this.io.to(room).emit("message", message);
+  private async handleMessage(socket: Socket, { roomId, text }: { roomId: string, text: string }) {
+    try{
+      const { name } = socket.data.user
+      const message = await this.roomService.addMessageToRoom(roomId, name, text);
+      this.io.to(roomId).emit("message", message);
+    }
+    catch (e){
+      console.log((e as Error).message)
+    }
   }
 
   private async updateOnlineUsers() {
